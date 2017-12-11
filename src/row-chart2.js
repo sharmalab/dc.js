@@ -24,6 +24,7 @@
 dc.rowChart = function (parent, chartGroup) {
 
     var _g;
+
     var _labelOffsetX = 10;
     var _labelOffsetY = 15;
     var _hasLabelOffsetY = false;
@@ -48,7 +49,7 @@ dc.rowChart = function (parent, chartGroup) {
     var _rowData;
 
     _chart.rowsCap = _chart.cap;
-
+    var count = 0;
     function calculateAxisScale () {
         if (!_x || _elasticX) {
             var extent = d3.extent(_rowData, _chart.cappedValueAccessor);
@@ -129,64 +130,83 @@ dc.rowChart = function (parent, chartGroup) {
                 return -_chart.effectiveHeight();
             });
     }
-    var count = 0; 
-    function drawOriginal(){
-        var _rowData = _chart.data();
-        var orows = _g.selectAll('g.'+_rowCssClass+'o')
-          .data(_rowData);
-        createElements(orows, true);
-        removeElements(orows, true);
-        updateElements(orows, true);         
-        console.log('asdfasdfasdfasdF');
-        console.log('once') ;
-    }
+    var originalData = {};
     function drawChart () {
         _rowData = _chart.data();
 
         drawAxis();
         drawGridLines();
-
-        var rows = _g.selectAll('g.' + _rowCssClass)
+        if(count === 0) {
+          originalData = _rowData;
+          var orows = _g.selectAll('g.'+_rowCssClass+'o')
+            .data(originalData);
+          //console.log(orows);
+          createElements(orows, true);
+          removeElements(orows, true);
+          updateElements(orows, true);
+          console.log('drawing chart');
+        }
+        count++;
+        var rows = _g.selectAll('g.' + _rowCssClass+'i')
             .data(_rowData);
+        
 
 
         createElements(rows, false);
         removeElements(rows, false);
         updateElements(rows, false);
-        if(count === 0){
-          drawOriginal();
-          count++;       
-        }
     }
 
-    function createElements (rows, original) {
-        console.log(rows);
-
-        if(original){
-          var height = 40;
-          var orowEnter = rows.enter()
-            .append('g')
-            .attr('class', function(d,i){
-              return _rowCssClass + ' _' + i + 'o';
-            });
-          orowEnter.append('rect').attr('width', 0).attr('class','ox');
-          console.log('orow');
-          console.log(orowEnter);
-          console.log('once');
-        }else { 
-
+    function createElements (rows, original) { 
+      //if(original){
+          console.log(rows);
+          var n = _rowData.length;
+        
+        var height;
+        if (!_fixedBarHeight) {
+            height = (_chart.effectiveHeight() - (n + 1) * _gap) / n;
+        } else {
+            height = _fixedBarHeight;
         }
-          var rowEnter = rows.enter()
-          .append('g')
-          .attr('class', function (d, i) {
-              return _rowCssClass + ' _' + i;
-          });
-          rowEnter.append('rect').attr('width', 0).attr('class','i');
-          createLabels(rowEnter);       
+          var orows = rows;
+          var orowEnter =  orows.enter()
+            .append('g')
+            .attr('class', function (d, i) {
+                var cls = _rowCssClass + ' _' + i+'o';
+                return cls;
+            });
+          orowEnter.append('rect').attr('width', 0);
+
+          var orect = rows.attr('transform', function (d, i) {
+                return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
+            }).select('rect')
+            .attr('height', height)
+            .attr('fill', '#cccccc')
+            .attr('width', function(d){
+              console.log(d);
+              console.log(_x(d.value));
+              //return(d.value);
+              return _x(100);
+            });
+      
+        console.log("im' here");
+        var rowEnter = rows.enter()
+            .append('g')
+            .attr('class', function (d, i) {
+                var cls = _rowCssClass + ' _' + i;
+                return cls;
+            });
+      
+       
+        rowEnter.append('rect').attr('width', 0);
+
+        createLabels(rowEnter);
+        //}
     }
 
     function removeElements (rows) {
-        //rows.exit().remove();
+        console.log(rows);
+        rows.exit().remove();
     }
 
     function rootValue () {
@@ -196,7 +216,7 @@ dc.rowChart = function (parent, chartGroup) {
 
     function updateElements (rows, original) {
         var n = _rowData.length;
-
+        
         var height;
         if (!_fixedBarHeight) {
             height = (_chart.effectiveHeight() - (n + 1) * _gap) / n;
@@ -208,53 +228,61 @@ dc.rowChart = function (parent, chartGroup) {
         if (!_hasLabelOffsetY) {
             _labelOffsetY = height / 2;
         }
+
         if(original){
-          console.log(rows);
-          console.log('this is original!!');
-          var orect = rows.attr('transform', function (d, i) {
-                console.log('here');
+
+          
+          console.log("herereere");
+          var orows = rows;  
+          var orect = orows.attr('transform', function (d, i) {
                 return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
-            }).select('rect.ox')
+            }).select('rect')
             .attr('height', height)
             .attr('fill', '#cccccc')
-            .attr('class', 'original')
-            .attr('width', function(d){return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)))});
-          console.log(orect);
-        } else {
+          
+            .attr('width', function(d){
+              console.log(d);
+              console.log(_x(100));
+              //return(d.value);
+              return _x(d.value);
+            });
+            console.log("original render");
+              /* 
+             dc.transition(orect, _chart.transitionDuration(), _chart.transitionDelay())
+            .attr('width', function (d) {
+                console.log(rootValue());
+                console.log(d);
+                return Math.abs(100);
+            })
+            .attr('transform', translateX);
+            */
 
-        }
-        console.log('updt');
-        console.log(rows);
+        } else{
+        dc.disableTransitions = true;
+        console.log("here too");
         var rect = rows.attr('transform', function (d, i) {
-            console.log('now here');
-              return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
-          }).select('rect.i')
-          .attr('height', height)
-          .attr('fill',_chart.getColor )
-          .attr('width', function(d){
-            console.log(d);
-            return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)))})
-          .on('click', onClick)
-           .classed('deselected', function (d) {
-              return (_chart.hasFilter()) ? !isSelectedRow(d) : false;
-          })
-          .classed('selected', function (d) {
-              return (_chart.hasFilter()) ? isSelectedRow(d) : false;
-          });
+                return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
+            }).select('rect')
+            .attr('height', height)
+            .attr('fill', _chart.getColor)
+            //.attr('class', 'fil')
+            .on('click', onClick)
+            .classed('deselected', function (d) {
+                return (_chart.hasFilter()) ? !isSelectedRow(d) : false;
+            })
+            .classed('selected', function (d) {
+                return (_chart.hasFilter()) ? isSelectedRow(d) : false;
+            });
 
-         
-          //rect = d3.select('rect.i');
-          //console.log(rect);
+        dc.transition(rect, _chart.transitionDuration(), _chart.transitionDelay())
+            .attr('width', function (d) {
+                return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)));
+            })
+            .attr('transform', translateX);
 
-      dc.transition(rect, _chart.transitionDuration(), _chart.transitionDelay())
-          .attr('width', function (d) {
-              console.log('here');
-              return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)));
-          })
-          .attr('transform', translateX);
-                   
         createTitles(rows);
         updateLabels(rows);
+        }
     }
 
     function createTitles (rows) {
