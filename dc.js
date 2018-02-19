@@ -5570,7 +5570,7 @@ dc.barChart = function (parent, chartGroup) {
     var _alwaysUseRounding = false;
 
     var _barWidth;
-
+    var originalData = _chart.data(); 
     dc.override(_chart, 'rescale', function () {
         _chart._rescale();
         _barWidth = undefined;
@@ -5589,13 +5589,30 @@ dc.barChart = function (parent, chartGroup) {
     _chart.label(function (d) {
         return dc.utils.printSingleValue(d.y0 + d.y);
     }, false);
+    var count=0;
 
     _chart.plotData = function () {
         var layers = _chart.chartBodyG().selectAll('g.stack')
             .data(_chart.data());
-
+        if(count === 0){
+          originalData = _chart.data();
+        }
+        count++;
         calculateBarWidth();
-
+        var olayers = _chart.chartBodyG().selectAll('g.stack')
+          .data(originalData);
+        olayers.enter()
+          .append('g')
+          .attr('class', function(d,i){
+            return 'stack'+'_'+i+1;
+          });
+       
+      
+        olayers.each(function(d,i){
+          var l = d3.select(this);
+     
+          renderBars(l,i,d, true);
+        });
         layers
             .enter()
             .append('g')
@@ -5607,7 +5624,7 @@ dc.barChart = function (parent, chartGroup) {
         layers.each(function (d, i) {
             var layer = d3.select(this);
 
-            renderBars(layer, i, d);
+            renderBars(layer, i, d, false);
 
             if (_chart.renderLabel() && last === i) {
                 renderLabels(layer, i, d);
@@ -5659,14 +5676,22 @@ dc.barChart = function (parent, chartGroup) {
             .remove();
     }
 
-    function renderBars (layer, layerIndex, d) {
+    function renderBars (layer, layerIndex, d, isOriginal) {
         var bars = layer.selectAll('rect.bar')
             .data(d.values, dc.pluck('x'));
-
+        var color = dc.pluck('data', _chart.getColor);
+        if(isOriginal === true){
+          bars = layer.selectAll('rect.bar2').data(d.values, dc.pluck('x'));
+          color = function(d, i){
+            
+            return '#cccccc';
+          };
+        }
+      
         var enter = bars.enter()
             .append('rect')
             .attr('class', 'bar')
-            .attr('fill', dc.pluck('data', _chart.getColor))
+            .attr('fill', color)
             .attr('y', _chart.yAxisHeight())
             .attr('height', 0);
 
@@ -5677,7 +5702,7 @@ dc.barChart = function (parent, chartGroup) {
         if (_chart.isOrdinal()) {
             bars.on('click', _chart.onClick);
         }
-
+        
         dc.transition(bars, _chart.transitionDuration(), _chart.transitionDelay())
             .attr('x', function (d) {
                 var x = _chart.x()(d.x);
@@ -5702,13 +5727,14 @@ dc.barChart = function (parent, chartGroup) {
             .attr('height', function (d) {
                 return barHeight(d);
             })
-            .attr('fill', dc.pluck('data', _chart.getColor))
+            .attr('fill', color)
             .select('title').text(dc.pluck('data', _chart.title(d.name)));
 
         dc.transition(bars.exit(), _chart.transitionDuration(), _chart.transitionDelay())
             .attr('x', function (d) { return _chart.x()(d.x); })
             .attr('width', _barWidth * 0.9)
             .remove();
+        
     }
 
     function calculateBarWidth () {
@@ -8049,6 +8075,149 @@ dc.seriesChart = function (parent, chartGroup) {
         return _chart;
     };
 
+    /**
+     * Add support for 2-D brushing
+     */
+
+    _chart.needed = function(){
+           dc.transition(symbols, _chart.transitionDuration(), _chart.transitionDelay())
+            .attr('opacity', function (d, i) {
+                if (!_existenceAccessor(d)) {
+                    return _emptyOpacity;
+                } else if (_filtered[i]) {
+                    return _nonemptyOpacity;
+                } else {
+                    return _chart.excludedOpacity();
+                }
+            });
+        }
+          _chart.excludedOpacity = function (excludedOpacity) {
+        if (!arguments.length) {
+            return _excludedOpacity;
+        }
+        _excludedOpacity = excludedOpacity;
+        return _chart;
+    };
+    _chart.setHandlePaths = function () {
+        // no handle paths for poly-brushes
+    };
+
+    _chart.extendBrush = function () {
+        var extent = _chart.brush().extent();
+        if (_chart.round()) {
+            extent[0] = extent[0].map(_chart.round());
+            extent[1] = extent[1].map(_chart.round());
+
+            _chart.g().select('.brush')
+                .call(_chart.brush().extent(extent));
+        }
+        return extent;
+    };
+
+    _chart.brushIsEmpty = function (extent) {
+        return _chart.brush().empty() || !extent || extent[0][0] >= extent[1][0] || extent[0][1] >= extent[1][1];
+    };
+    _chart._brushEnd = function () {
+        var extent = _chart.extendBrush();
+        
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+    };
+    
+    _chart._brushing = function () {
+        var extent = _chart.extendBrush();
+        /*
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+
+      */
+    };
+     var configureMouseZoom = function(){
+        var extent = _chart.extendBrush();
+        console.log("here inside this new brushing fun");
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+
+
+    }
+     /*
+    _chart.renderBrush = function (g) {
+        if (_chart._brushOn) {
+            _chart._brush.on('brush', _chart._brushing);
+            _chart._brush.on('brushstart', _chart._disableMouseZoom);
+            _chart._brush.on('brushend', configureMouseZoom);
+            console.log("ye wala");
+            var gBrush = g.append('g')
+                .attr('class', 'brush')
+                .attr('transform', 'translate(' + _chart.margins().left + ',' + _chart.margins().top + ')')
+                .call(_brush.x(_chart.x()));
+            _chart.setBrushY(gBrush, false);
+            _chart.setHandlePaths(gBrush);
+
+            if (_chart.hasFilter()) {
+                _chart.redrawBrush(g, false);
+            }
+        }
+    }; */    
+
+    _chart.setBrushY = function (gBrush) {
+        gBrush.call(_chart.brush().y(_chart.y()));
+    };
+
+
+
+
     // make compose private
     _chart._compose = _chart.compose;
     delete _chart.compose;
@@ -8574,7 +8743,6 @@ dc.bubbleOverlay = function (parent, chartGroup) {
 dc.rowChart = function (parent, chartGroup) {
 
     var _g;
-
     var _labelOffsetX = 10;
     var _labelOffsetY = 15;
     var _hasLabelOffsetY = false;
@@ -8680,7 +8848,17 @@ dc.rowChart = function (parent, chartGroup) {
                 return -_chart.effectiveHeight();
             });
     }
-
+    var count = 0; 
+    function drawOriginal(){
+        var _rowData = _chart.data();
+        var orows = _g.selectAll('g.'+_rowCssClass+'o')
+          .data(_rowData);
+        createElements(orows, true);
+        removeElements(orows, true);
+        updateElements(orows, true);         
+        console.log('asdfasdfasdfasdF');
+        console.log('once') ;
+    }
     function drawChart () {
         _rowData = _chart.data();
 
@@ -8690,25 +8868,44 @@ dc.rowChart = function (parent, chartGroup) {
         var rows = _g.selectAll('g.' + _rowCssClass)
             .data(_rowData);
 
-        createElements(rows);
-        removeElements(rows);
-        updateElements(rows);
+
+        createElements(rows, false);
+        removeElements(rows, false);
+        updateElements(rows, false);
+        if(count === 0){
+          drawOriginal();
+          count++;       
+        }
     }
 
-    function createElements (rows) {
-        var rowEnter = rows.enter()
+    function createElements (rows, original) {
+        console.log(rows);
+
+        if(original){
+          var height = 40;
+          var orowEnter = rows.enter()
             .append('g')
-            .attr('class', function (d, i) {
-                return _rowCssClass + ' _' + i;
+            .attr('class', function(d,i){
+              return _rowCssClass + ' _' + i + 'o';
             });
+          orowEnter.append('rect').attr('width', 0).attr('class','ox');
+          console.log('orow');
+          console.log(orowEnter);
+          console.log('once');
+        }else { 
 
-        rowEnter.append('rect').attr('width', 0);
-
-        createLabels(rowEnter);
+        }
+          var rowEnter = rows.enter()
+          .append('g')
+          .attr('class', function (d, i) {
+              return _rowCssClass + ' _' + i;
+          });
+          rowEnter.append('rect').attr('width', 0).attr('class','i');
+          createLabels(rowEnter);       
     }
 
     function removeElements (rows) {
-        rows.exit().remove();
+        //rows.exit().remove();
     }
 
     function rootValue () {
@@ -8716,7 +8913,7 @@ dc.rowChart = function (parent, chartGroup) {
         return (root === -Infinity || root !== root) ? _x(1) : root;
     }
 
-    function updateElements (rows) {
+    function updateElements (rows, original) {
         var n = _rowData.length;
 
         var height;
@@ -8730,26 +8927,51 @@ dc.rowChart = function (parent, chartGroup) {
         if (!_hasLabelOffsetY) {
             _labelOffsetY = height / 2;
         }
-
-        var rect = rows.attr('transform', function (d, i) {
+        if(original){
+          console.log(rows);
+          console.log('this is original!!');
+          var orect = rows.attr('transform', function (d, i) {
+                console.log('here');
                 return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
-            }).select('rect')
+            }).select('rect.ox')
             .attr('height', height)
-            .attr('fill', _chart.getColor)
-            .on('click', onClick)
-            .classed('deselected', function (d) {
-                return (_chart.hasFilter()) ? !isSelectedRow(d) : false;
-            })
-            .classed('selected', function (d) {
-                return (_chart.hasFilter()) ? isSelectedRow(d) : false;
-            });
+            .attr('fill', '#cccccc')
+            .attr('class', 'original')
+            .attr('width', function(d){return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)))});
+          console.log(orect);
+        } else {
 
-        dc.transition(rect, _chart.transitionDuration(), _chart.transitionDelay())
-            .attr('width', function (d) {
-                return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)));
-            })
-            .attr('transform', translateX);
+        }
+        console.log('updt');
+        console.log(rows);
+        var rect = rows.attr('transform', function (d, i) {
+            console.log('now here');
+              return 'translate(0,' + ((i + 1) * _gap + i * height) + ')';
+          }).select('rect.i')
+          .attr('height', height)
+          .attr('fill',_chart.getColor )
+          .attr('width', function(d){
+            console.log(d);
+            return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)))})
+          .on('click', onClick)
+           .classed('deselected', function (d) {
+              return (_chart.hasFilter()) ? !isSelectedRow(d) : false;
+          })
+          .classed('selected', function (d) {
+              return (_chart.hasFilter()) ? isSelectedRow(d) : false;
+          });
 
+         
+          //rect = d3.select('rect.i');
+          //console.log(rect);
+
+      dc.transition(rect, _chart.transitionDuration(), _chart.transitionDelay())
+          .attr('width', function (d) {
+              console.log('here');
+              return Math.abs(rootValue() - _x(_chart.valueAccessor()(d)));
+          })
+          .attr('transform', translateX);
+                   
         createTitles(rows);
         updateLabels(rows);
     }

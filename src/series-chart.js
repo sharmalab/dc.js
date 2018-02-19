@@ -180,6 +180,149 @@ dc.seriesChart = function (parent, chartGroup) {
         return _chart;
     };
 
+    /**
+     * Add support for 2-D brushing
+     */
+
+    _chart.needed = function(){
+           dc.transition(symbols, _chart.transitionDuration(), _chart.transitionDelay())
+            .attr('opacity', function (d, i) {
+                if (!_existenceAccessor(d)) {
+                    return _emptyOpacity;
+                } else if (_filtered[i]) {
+                    return _nonemptyOpacity;
+                } else {
+                    return _chart.excludedOpacity();
+                }
+            });
+        }
+          _chart.excludedOpacity = function (excludedOpacity) {
+        if (!arguments.length) {
+            return _excludedOpacity;
+        }
+        _excludedOpacity = excludedOpacity;
+        return _chart;
+    };
+    _chart.setHandlePaths = function () {
+        // no handle paths for poly-brushes
+    };
+
+    _chart.extendBrush = function () {
+        var extent = _chart.brush().extent();
+        if (_chart.round()) {
+            extent[0] = extent[0].map(_chart.round());
+            extent[1] = extent[1].map(_chart.round());
+
+            _chart.g().select('.brush')
+                .call(_chart.brush().extent(extent));
+        }
+        return extent;
+    };
+
+    _chart.brushIsEmpty = function (extent) {
+        return _chart.brush().empty() || !extent || extent[0][0] >= extent[1][0] || extent[0][1] >= extent[1][1];
+    };
+    _chart._brushEnd = function () {
+        var extent = _chart.extendBrush();
+        
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+    };
+    
+    _chart._brushing = function () {
+        var extent = _chart.extendBrush();
+        /*
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+
+      */
+    };
+     var configureMouseZoom = function(){
+        var extent = _chart.extendBrush();
+        console.log("here inside this new brushing fun");
+        _chart.redrawBrush(_chart.g());
+
+        if (_chart.brushIsEmpty(extent)) {
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.redrawGroup();
+            });
+
+        } else {
+            var ranged2DFilter = dc.filters.RangedTwoDimensionalFilter(extent);
+            _chart.ranged2DFilter = ranged2DFilter;
+            dc.events.trigger(function () {
+                _chart.filter(null);
+                _chart.filter(ranged2DFilter);
+                _chart.redrawGroup();
+            }, dc.constants.EVENT_DELAY);
+            //console.log(ranged2DFilter);
+
+        }
+
+
+    }
+     /*
+    _chart.renderBrush = function (g) {
+        if (_chart._brushOn) {
+            _chart._brush.on('brush', _chart._brushing);
+            _chart._brush.on('brushstart', _chart._disableMouseZoom);
+            _chart._brush.on('brushend', configureMouseZoom);
+            console.log("ye wala");
+            var gBrush = g.append('g')
+                .attr('class', 'brush')
+                .attr('transform', 'translate(' + _chart.margins().left + ',' + _chart.margins().top + ')')
+                .call(_brush.x(_chart.x()));
+            _chart.setBrushY(gBrush, false);
+            _chart.setHandlePaths(gBrush);
+
+            if (_chart.hasFilter()) {
+                _chart.redrawBrush(g, false);
+            }
+        }
+    }; */    
+
+    _chart.setBrushY = function (gBrush) {
+        gBrush.call(_chart.brush().y(_chart.y()));
+    };
+
+
+
+
     // make compose private
     _chart._compose = _chart.compose;
     delete _chart.compose;

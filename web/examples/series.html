@@ -34,7 +34,7 @@ d3.csv("morley.csv", function(error, experiments) {
     .height(480)
     .chart(function(c) { return dc.lineChart(c).interpolate('cardinal'); })
     .x(d3.scale.linear().domain([0,20]))
-    .brushOn(false)
+    .brushOn(true)
     .yAxisLabel("Measured Speed km/s")
     .xAxisLabel("Run")
     .clipPadding(10)
@@ -52,6 +52,31 @@ d3.csv("morley.csv", function(error, experiments) {
   dc.renderAll();
 
 });
+
+chart.filterHandler(function(d, f){
+    
+    console.log(chart.ranged2DFilter[0]);
+    console.log(chart.ranged2DFilter[1]);
+}); 
+/*
+    chart.filterHandler(function (dimension, filters){
+   if(chart.ranged2DFilter != null){
+         flooring = chart.ranged2DFilter;
+         flooring[0][0] = (Math.floor(flooring[0][0]));
+         flooring[1][0] = (Math.floor(flooring[1][0]));
+         flooring[0][1] = (Math.floor(flooring[0][1]));
+         flooring[1][1] = (Math.floor(flooring[1][1]));
+        //console.log("filtering");
+        //console.log(chart.ranged2DFilter);
+        //console.log(filters);
+    return flooring;
+    }
+    });
+*/
+
+
+  
+
 
 function load_button(file) {
     return function load_it() {
