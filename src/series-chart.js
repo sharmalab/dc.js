@@ -34,7 +34,7 @@ dc.seriesChart = function (parent, chartGroup) {
     var _valueSort = keySort;
 
     _chart._mandatoryAttributes().push('seriesAccessor', 'chart');
-    _chart.shareColors(true);
+    _chart.shareColors(false);
 
     _chart._preprocessData = function () {
         var keep = [];
@@ -224,7 +224,7 @@ dc.seriesChart = function (parent, chartGroup) {
     };
     _chart._brushEnd = function () {
         var extent = _chart.extendBrush();
-        
+
         _chart.redrawBrush(_chart.g());
 
         if (_chart.brushIsEmpty(extent)) {
@@ -248,6 +248,7 @@ dc.seriesChart = function (parent, chartGroup) {
     
     _chart._brushing = function () {
         var extent = _chart.extendBrush();
+
         /*
         _chart.redrawBrush(_chart.g());
 
@@ -273,7 +274,7 @@ dc.seriesChart = function (parent, chartGroup) {
     };
      var configureMouseZoom = function(){
         var extent = _chart.extendBrush();
-        console.log("here inside this new brushing fun");
+
         _chart.redrawBrush(_chart.g());
 
         if (_chart.brushIsEmpty(extent)) {
