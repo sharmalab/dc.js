@@ -36,7 +36,7 @@ dc.barChart = function (parent, chartGroup) {
     var _alwaysUseRounding = false;
 
     var _barWidth;
-    var originalData = _chart.data(); 
+
     dc.override(_chart, 'rescale', function () {
         _chart._rescale();
         _barWidth = undefined;
@@ -55,30 +55,13 @@ dc.barChart = function (parent, chartGroup) {
     _chart.label(function (d) {
         return dc.utils.printSingleValue(d.y0 + d.y);
     }, false);
-    var count=0;
 
     _chart.plotData = function () {
         var layers = _chart.chartBodyG().selectAll('g.stack')
             .data(_chart.data());
-        if(count === 0){
-          originalData = _chart.data();
-        }
-        count++;
+
         calculateBarWidth();
-        var olayers = _chart.chartBodyG().selectAll('g.stack')
-          .data(originalData);
-        olayers.enter()
-          .append('g')
-          .attr('class', function(d,i){
-            return 'stack'+'_'+i+1;
-          });
-       
-      
-        olayers.each(function(d,i){
-          var l = d3.select(this);
-     
-          renderBars(l,i,d, true);
-        });
+
         layers
             .enter()
             .append('g')
@@ -90,7 +73,7 @@ dc.barChart = function (parent, chartGroup) {
         layers.each(function (d, i) {
             var layer = d3.select(this);
 
-            renderBars(layer, i, d, false);
+            renderBars(layer, i, d);
 
             if (_chart.renderLabel() && last === i) {
                 renderLabels(layer, i, d);
@@ -142,22 +125,14 @@ dc.barChart = function (parent, chartGroup) {
             .remove();
     }
 
-    function renderBars (layer, layerIndex, d, isOriginal) {
+    function renderBars (layer, layerIndex, d) {
         var bars = layer.selectAll('rect.bar')
             .data(d.values, dc.pluck('x'));
-        var color = dc.pluck('data', _chart.getColor);
-        if(isOriginal === true){
-          bars = layer.selectAll('rect.bar2').data(d.values, dc.pluck('x'));
-          color = function(d, i){
-            
-            return '#cccccc';
-          };
-        }
-      
+
         var enter = bars.enter()
             .append('rect')
             .attr('class', 'bar')
-            .attr('fill', color)
+            .attr('fill', dc.pluck('data', _chart.getColor))
             .attr('y', _chart.yAxisHeight())
             .attr('height', 0);
 
@@ -168,7 +143,7 @@ dc.barChart = function (parent, chartGroup) {
         if (_chart.isOrdinal()) {
             bars.on('click', _chart.onClick);
         }
-        
+
         dc.transition(bars, _chart.transitionDuration(), _chart.transitionDelay())
             .attr('x', function (d) {
                 var x = _chart.x()(d.x);
@@ -193,14 +168,13 @@ dc.barChart = function (parent, chartGroup) {
             .attr('height', function (d) {
                 return barHeight(d);
             })
-            .attr('fill', color)
+            .attr('fill', dc.pluck('data', _chart.getColor))
             .select('title').text(dc.pluck('data', _chart.title(d.name)));
 
         dc.transition(bars.exit(), _chart.transitionDuration(), _chart.transitionDelay())
             .attr('x', function (d) { return _chart.x()(d.x); })
             .attr('width', _barWidth * 0.9)
             .remove();
-        
     }
 
     function calculateBarWidth () {
